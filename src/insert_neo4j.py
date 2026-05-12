@@ -33,6 +33,9 @@ def preparar_vector_para_ia(row_kafka):
             
     return vector
 
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------
 # En su bucle de Kafka:
 for mensaje in kafka:
     datos = mensaje.value
@@ -41,7 +44,7 @@ for mensaje in kafka:
     datos['vector_numerico'] = preparar_vector_para_ia(datos)
     
     # Le pregunta a tu modelo
-    resultado_ia = detector.predecir_conexion(datos)
+    resultado_ia = detector.predecir(datos)
     
     # Inserción en Neo4j
     query = """

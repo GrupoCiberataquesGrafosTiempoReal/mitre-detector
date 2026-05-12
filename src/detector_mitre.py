@@ -1,10 +1,11 @@
+import json
+import joblib
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import SAGEConv, GATConv
-import joblib
-import numpy as np
-import pandas as pd
 
 # ==============================================================================
 # 1. ARQUITECTURA DEL MODELO (Debe ser idéntica a la del Notebook)
@@ -96,11 +97,44 @@ class DetectorMITRE:
         m.load_state_dict(torch.load(path, map_location=self.device))
         m.eval()
         return m
+    
+    def _preparar_vector_features(self, registro):
+        # TODO: carga de JSON (lista string) desde environment del contenedor (Configuración)?  
+        with open("../data/processed/columnas_modelo.json", "r") as f:
+            columnas_esperadas = json.load(f)
+
+        # TODO: ¿recibir propiedad JSON con variables numéricas?
+        variables_base = ['duration', 'orig_bytes', 'resp_bytes', 'orig_pkts', 'resp_pkts', 'missed_bytes', 'time_since_last_conn']
+
+        vector = []
+        # 1. Añadir las variables numéricas (si viene nulo, poner 0.0)
+        for col in variables_base:
+            vector.append(float(registro.get(col, 0.0) or 0.0))
+        
+        # 2. TRANSFORMACIÓN CRÍTICA: Construir el One-Hot Encoding a mano
+        # El estado que viene en el paquete de Kafka
+        estado_actual = str(registro.get('conn_state', 'OTH'))
+        
+        # Recorremos el resto de columnas esperadas (que son las tipo 'state_S0', 'state_SF', etc.)
+        columnas_dummies = columnas_esperadas[len(variables_base):]
+        
+        for col_dummy in columnas_dummies:
+            # col_dummy es algo como "state_S0"
+            estado_dummy = col_dummy.split('state_')[1] 
+            if estado_actual == estado_dummy:
+                vector.append(1.0)
+            else:
+                vector.append(0.0)
+                
+        return vector
 
     def predecir(self, registro):
         """
-        registro: diccionario con 'src_ip', 'dst_ip', 'service' y 'vector_numerico'
+        registro: diccionario con columnas definidas en columnas_modelo.json
         """
+
+        registro["vector_numerico"] = self._preparar_vector_features(registro)
+
         # Preparación de tensores
         edge_attr = torch.tensor(self.scaler_edges.transform([registro['vector_numerico']]), dtype=torch.float).to(self.device)
         
@@ -140,3 +174,8 @@ class DetectorMITRE:
                 "tactic": self.encoder_tactics.inverse_transform([idx_pred])[0],
                 "conf": float(probs_final[idx_pred].item())
             }
+        
+
+        #TODO: poder recibir datos directamente de los .parquet originales...
+        # reconstruir edge_features_df? -> se puede?
+        # return binario, multiclase -> ¿confianza?
