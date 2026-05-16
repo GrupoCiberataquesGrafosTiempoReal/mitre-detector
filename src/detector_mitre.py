@@ -52,6 +52,10 @@ class DetectorMITRE:
     def __init__(self, ruta_modelos="../data/processed"):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"[*] Cargando SOC AI en: {self.device}")
+
+        self.umbrales_optimos = json.load(open("../models/config/umbrales_optimos.json", 'r'))
+        print(f"[*] Umbrales Óptimos cargados: {self.umbrales_optimos}")
+
         
         # 1. Cargar Artefactos
         self.scaler_edges = joblib.load(f"{ruta_modelos}/scaler_edges.pkl")
@@ -94,6 +98,20 @@ class DetectorMITRE:
             self._load_mod(n_node_feat, n_edge_feat, 256, self.num_clases, 'SAGE', f"{ruta_modelos}/multi_gen_sage.pth"),
             self._load_mod(n_node_feat, n_edge_feat, 256, self.num_clases, 'GAT', f"{ruta_modelos}/multi_gen_gat.pth")
         ]
+
+        # 5. Inyectar umbrales (Threshold Moving)
+        if self.umbrales_optimos is None:
+            # Ejemplo de valores: el umbral binario baja a 0.35 para ser más sensible
+            # a anomalías, y las clases minoritarias tienen umbrales más bajos.
+            self.umbral_binario = 0.35 
+            
+            # Umbrales multiclase (debe coincidir con el len de las clases del encoder)
+            # Ejemplo: [0.5, 0.2, 0.4, 0.15...] donde 0.15 sería Exfiltration
+            umbrales_lista = [0.5] * self.num_clases 
+            self.umbrales_multiclase = torch.tensor(umbrales_lista).to(self.device)
+        else:
+            self.umbral_binario = self.umbrales_optimos['binario']
+            self.umbrales_multiclase = torch.tensor(self.umbrales_optimos['multiclase']).to(self.device)        
 
     def _load_mod(self, in_n, in_e, hid, out, t, path):
         m = AdvancedEdgeExpert(in_n, in_e, hid, out, t).to(self.device)
@@ -142,11 +160,17 @@ class DetectorMITRE:
         with torch.no_grad():
             # --- FASE 1: PORTERO ---
             out_bin = m_bin(self.x_nodos, edge_idx, edge_idx, edge_attr)
-            if torch.argmax(out_bin, dim=1).item() == 0:
+            probs_bin = F.softmax(out_bin, dim=1)[0]
+            
+            # TODO: revisar que el índice 1 es "Ataque" y 0 es "Benigno"
+            prob_ataque = probs_bin[1].item() 
+            
+            # En lugar de argmax, exigimos superar nuestro umbral óptimo (Threshold Moving)
+            if prob_ataque < self.umbral_binario:
                 return {
                     "es_ataque": False, 
                     "tactic": "Benigno", 
-                    "confianza": float(F.softmax(out_bin, dim=1)[0][0].item())
+                    "confianza": float(probs_bin[0].item())
                 }
 
             # --- FASE 2: MULTICLASE (Soft Voting) ---
@@ -155,11 +179,15 @@ class DetectorMITRE:
                 probs_acum += F.softmax(m(self.x_nodos, edge_idx, edge_idx, edge_attr), dim=1)[0]
             
             probs_final = probs_acum / len(m_multi)
-            probs_final[self.id_benigno] = 0.0 # Forzamos clase maliciosa
+
+            probs_ajustadas = probs_final / self.umbrales_multiclase
+            tactic_idx = torch.argmax(probs_ajustadas).item()
+            tactic_name = self.encoder_tactics.inverse_transform([tactic_idx])[0]
             
             idx_pred = torch.argmax(probs_final).item()
             return {
                 "es_ataque": True,
-                "tactic": str(self.encoder_tactics.inverse_transform([idx_pred])[0]),
-                "confianza": float(probs_final[idx_pred].item())
+                "tactic": tactic_name,
+                "confianza_bruta": float(probs_final[tactic_idx].item()),
+                "ratio_umbral": float(probs_ajustadas[tactic_idx].item())
             }
