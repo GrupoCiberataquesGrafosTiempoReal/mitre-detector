@@ -41,9 +41,12 @@ def iniciar_simulacion():
     ultimo_ts = None
 
     fin_filas = SALTAR_N_FILAS + MUESTRAS_A_SIMULAR
-    
-    #for index, row in df_test.iloc[SALTAR_N_FILAS : fin_filas].iterrows():
-    for index, row in df_test.iterrows():
+
+    #primer_benigno_idx = df_test[df_test['is_attack'] == False].index[0]
+    #print(f"Primer elemento benigno: {primer_benigno_idx}")
+
+    for index, row in df_test.iloc[SALTAR_N_FILAS : fin_filas].iterrows():
+    #for index, row in df_test.loc[primer_benigno_idx:].iterrows():
         payload_json = row.to_dict()
         
         # --- EXTRAER GROUND TRUTH (VALORES REALES) ---
