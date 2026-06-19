@@ -31,16 +31,32 @@ Antes de levantar el servicio, asegúrate de tener los modelos entrenados y los 
 - `./models`: Debe contener los archivos `.pth` y las subcarpetas `encoders/` y `config/`.
 - `./data`: Debe contener el archivo `columnas_modelo.json`.
 
-### 2. Levantar el Servicio
+### 2. Construcción y Despliegue del Servicio
 
-En la raíz del repositorio, ejecuta:
+Puedes levantar la infraestructura de dos maneras, dependiendo de tu entorno:
+
+**Opción A: Usando Docker Compose**
+Esto utilizará la configuración en _docker-compose.yml_. En la raíz del repositorio, simplemente ejecuta:
 
 ```bash
-docker build --no-cache -t mitre-detector .
-
+docker compose up -d --build
 ```
 
 > **Nota GPU (CUDA):** Si el servidor _host_ dispone de una tarjeta NVIDIA y `nvidia-container-toolkit` instalado, puedes descomentar el bloque `deploy: resources:` en el `docker-compose.yml` para aceleración por hardware. En caso contrario, PyTorch operará en modo CPU automáticamente.
+
+**Opción B: Usando Docker CLI Manualmente**
+Si prefieres gestionar el contenedor a mano, construye la imagen y levántala montando los volúmenes.
+Ajusta la ruta a los volúmenes si es necesario:
+
+```bash
+docker build --no-cache -t mitre-detector .
+docker run -d \
+  --name api-mitre \
+  -p 8080:8080 \
+  -v "$(pwd)/models:/models:ro" \
+  -v "$(pwd)/data:/data:ro" \
+  mitre-detector
+```
 
 ### 3. Consumir la API
 
