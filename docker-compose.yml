@@ -1,0 +1,33 @@
+services:
+  inference-api:
+    build: .
+    container_name: mitre-inference-api
+    ports:
+      - "8080:8080"
+    volumes:
+      # Montaje de los modelos y datos en modo solo lectura (ro)
+      - ./models:/models:ro
+      - ./data:/data:ro
+    environment:
+      # Variables de entorno para src/api.py
+      - MODEL_PATH=/models
+      - DATA_PATH=/data
+    restart: unless-stopped
+    
+    # ==========================================================
+    # SOPORTE PARA GPU (NVIDIA CUDA) - OPCIONAL
+    # ==========================================================
+    # Si el servidor o equipo host tiene una GPU NVIDIA y el 
+    # nvidia-container-toolkit instalado, descomenta las líneas 
+    # de abajo para activar la aceleración por hardware.
+    #
+    # Si se dejan comentadas, PyTorch operará en modo CPU de 
+    # forma automática.
+    #
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

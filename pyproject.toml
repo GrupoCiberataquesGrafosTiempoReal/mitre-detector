@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "mitre-detector"
+version = "1.0.0"
+description = "Motor de Inferencia GNN para MITRE ATT&CK"
+package-mode = false
+authors = ["Tu Nombre <tu@email.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12, <3.15"
+fastapi = "0.110.0"
+uvicorn = {extras = ["standard"], version = "0.29.0"}
+pandas = "3.0.1"
+numpy = "2.3.3"
+scikit-learn = "1.8.0"
+joblib = "1.5.3"
+torch-geometric = "2.8.0"
+pyarrow = "23.0.1"
+pyyaml = "6.0.1"
+
+[tool.poetry.group.dev.dependencies]
+matplotlib = "*"
+seaborn = "*"
+tabulate = "*"
+fastparquet = "*"
+neo4j = "*"
+python-dotenv = "*"
+# Solo se utiliza durante desarrollo
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.torch.dependencies]
+torch = "2.11.0"
+# Solo se utiliza cuando se haga build de la imagen docker, 
+# ya que en desarrollo se cuenta con la versión de NVIDIA especificada en devcontainer.json

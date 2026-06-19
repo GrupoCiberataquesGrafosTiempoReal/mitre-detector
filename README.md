@@ -1,90 +1,96 @@
-### Repositorio para entrenamiento de comité de modelos predictivos mediante GraphSAGE y GAT
+# 🛡️ Sistema de Detección de Intrusiones (IDS) Basado en Grafos (GNN) y MITRE ATT&CK
 
-La carpeta **data** contiene todos los archivos de datos.
-En **raw** está el dataset **UWF-ZeekData24** completo dividido en 7 archivos .parquet.
-En **processed** se encuentra el dataset adaptado y dividio en dos partes:
-
-- **dataset_historico_neo4j.parquet**: es el conjunto de entrenamiento de los modelos predictivos. Se insertarán en Neo4J directamente, sin desetiquetar/reetiquetar.
-- **dataset_simulacion_kafka.parquet**: es el conjunto de test de los modelos predictivos. Se desetiquetarán y se hará predicciones con ellos.
-- **columnas_modelo.json**: archivo necesario para mantener el orden de columnas al cargar los datos procesados. Esto es importante para utilizar los modelos predictivos previamente entrenados.
-
-La carpeta **notebooks** contiene cuadernos con exploración del atributo _service_ de los elementos del dataset, subida de datos a Neo4J, y el código principal para el entrenamiento de los modelos predictivos.
-
-La carpeta **models** contiene los modelos predictivos entrenados y listos para ser consumidos.
-En la subcarpeta **encoders** se encuentran los codificadores necesarios para utilizar los modelos.
-
-La carpeta **src** contiene los archivos **detector_mitre.py** y **insert_neo4j.py**, necesarios para poder procesar los datos de manera compatible con los modelos generados. Estas clases no son finales y pueden servir simplemente como guía para el código final de procesado, predicción e inserción en Neo4J.
-
-La carpeta **experiments** contiene código variado de pruebas de entrenamiento de modelos anteriores.
+Este repositorio contiene el código fuente, la experimentación y el motor de inferencia para un **Clasificador Jerárquico en Cascada** capaz de detectar ciberataques en flujos de red (Zeek) en tiempo real, mapeándolos a las tácticas de la matriz MITRE ATT&CK utilizando Redes Neuronales de Grafos (GraphSAGE y GAT).
 
 ---
 
-# Arquitectura y Metodología del Sistema de Detección de Intrusiones basado en Grafos
+## 📂 Estructura del Repositorio
 
-## 1. Enfoque Arquitectónico: Clasificador Jerárquico en Cascada (Two-Stage Classifier)
-
-Para abordar el reto inherente al análisis de tráfico de red, donde el tráfico legítimo supera en órdenes de magnitud a las anomalías, se ha diseñado una **arquitectura en cascada de dos fases**. En lugar de emplear un modelo monolítico, el sistema divide la carga cognitiva de la red neuronal:
-
-- **Fase 1 (Detección Binaria - "El Portero"):** Un comité de modelos entrenado exclusivamente para la discriminación binaria (Ataque vs. Benigno). Actúa como un filtro de alta precisión que bloquea los falsos positivos del tráfico masivo.
-
-- **Fase 2 (Clasificación Multiclase Forense - "El Analista"):** Un segundo comité que recibe únicamente el tráfico catalogado como malicioso por la Fase 1. Al haber eliminado el "ruido" de la clase mayoritaria (Benigno), estos modelos se especializan en diferenciar las sutiles huellas topológicas de las diferentes tácticas de la matriz **MITRE ATT\&CK** (ej. _Exfiltration_, _Persistence_, _Privilege Escalation_).
-
-## 2. Enrutador Topológico por Servicios (Domain Routing)
-
-El tráfico de red se segmenta semánticamente antes de entrar a las redes neuronales, enviándose a sub-modelos "expertos" según el protocolo de la capa de aplicación. Esta especialización evita la interferencia catastrófica (ej. el tráfico web tiene una topología diametralmente opuesta al tráfico DNS):
-
-1. **Experto Web:** Analiza tráfico `ssl` y `http`.
-
-2. **Experto Infraestructura:** Especializado en tráfico de servicios base y UDP (`dns`, `ntp`, `dhcp`).
-
-3. **Experto Autenticación:** Crítico para detectar movimientos laterales. Analiza protocolos de Windows e identidad (`smb`, `gssapi`, `ntlm`, `dce_rpc`).
-
-4. **Experto Generalista:** Un modelo de mayor capacidad neuronal destinado a procesar tráfico desconocido, anómalo o residual.
-
-## 3. Ingeniería de Características (Feature Engineering)
-
-El sistema utiliza un enfoque inductivo, permitiendo que el modelo generalice sobre direcciones IP no vistas durante el entrenamiento. Para ello, se extrajeron tres dimensiones de datos:
-
-- **Características Inductivas de los Nodos (IPs):** En lugar de usar _embeddings_ estáticos que memorizan IPs, se extrajeron métricas de comportamiento histórico bidireccional (_in-degree_, _out-degree_, _in_bytes_mean_, _out_bytes_mean_, etc.).
-
-- **Características Semánticas de las Aristas (Zeek Logs):** Se utilizaron las métricas crudas de las conexiones (`duration`, `orig_bytes`, `resp_bytes`, `orig_pkts`, `resp_pkts`, `missed_bytes`). A esto se sumó el **One-Hot Encoding del campo `conn_state`** (estado de la conexión), revelándose como una variable crítica para detectar tácticas escurridizas como _Privilege Escalation_.
-
-- **Ingeniería Temporal (Beaconing):** Se calculó la variable `time_since_last_conn` (diferencia de tiempo entre conexiones de los mismos pares de IPs). Esta variable dotó al sistema de "memoria temporal", permitiendo identificar patrones topológicos de _Persistencia_ o llamadas automatizadas a servidores C2 (Command and Control).
-
-## 4. Diversidad Arquitectónica de los Modelos (GNN)
-
-El núcleo predictivo se construyó utilizando la librería PyTorch Geometric, combinando dos arquitecturas de Redes Neuronales de Grafos para lograr un aprendizaje complementario:
-
-- **GraphSAGE (SAGEConv):** Ideal para capturar la densidad volumétrica y las características agregadas de vecindarios topológicos locales (ej. ataques de fuerza bruta o escaneos de red).
-
-- **GAT (Graph Attention Networks):** Configurado con mecanismos de atención multi-cabezal (`heads=4`). A diferencia de SAGE, GAT aprende a ponderar qué conexiones vecinas son críticas, siendo excepcional para rastrear la aguja en el pajar (ej. una única conexión de robo de tickets Kerberos camuflada entre cientos de conexiones benignas).
-
-Ambas arquitecturas se diseñaron con una **profundidad de 3 saltos convolucionales**, añadiendo capas de _Batch Normalization_ y _Dropout_ dinámico (0.2 a 0.5) para acelerar la convergencia y mitigar el sobreajuste.
-
-## 5. Estrategias Avanzadas de Mitigación del Desbalanceo
-
-El dataset presentaba un desbalanceo extremo (cientos de miles de conexiones benignas frente a un centenar de conexiones de _Exfiltration_). Se implementó un enfoque híbrido en la función de pérdida y el muestreo:
-
-- **Undersampling selectivo:** Descarte aleatorio programado de un porcentaje de las clases masivas (Benigno y Credential Access) exclusivamente durante la fase de entrenamiento, permitiendo que la red "viera" las clases minoritarias con mayor frecuencia.
-
-- **Focal Loss con Weight Clipping:** Se abandonó la entropía cruzada estándar (CrossEntropy) en favor de **Focal Loss** ($\gamma=2.0$). Esta función reduce dinámicamente la pérdida de los ejemplos fáciles (los que la red ya acierta con confianza) y focaliza el gradiente en las tácticas que el modelo clasifica erróneamente. Además, se aplicó un _clipping_ máximo a los pesos matemáticos (`max_weight = 12.0 - 20.0`) y un ajuste manual del peso de _Credential Access_ para evitar la explosión del gradiente y el efecto _Whac-A-Mole_.
-
-## 6. Lógica de Inferencia en Producción (Soft Voting Ensemble)
-
-En la fase de evaluación y producción (simulando la ingesta en Streaming desde Kafka), el pipeline sigue una lógica determinista robusta:
-
-1. La conexión se enruta al modelo de la **Fase 1 (Binario)** correspondiente según su servicio. Si se clasifica como benigna, el proceso termina, asegurando un índice de falsos positivos virtualmente nulo en tráfico estándar.
-
-2. Si se marca como ataque, la conexión se deriva a la **Fase 2 (Multiclase)**.
-
-3. En la Fase 2, en lugar de consultar a un solo modelo, se ejecuta un **Soft Voting Ensemble Intra-Etapa**. Se consulta simultáneamente al modelo SAGE y al modelo GAT de ese servicio. Las probabilidades devueltas por ambas redes (tras aplicar una capa Softmax) se promedian.
-
-4. Como medida adicional de seguridad forense, la probabilidad de la clase 'Benigno' en esta fase se fuerza matemáticamente a `0.0`, obligando al "Analista" a emitir siempre un veredicto basado en la matriz MITRE ATT\&CK. La etiqueta final se obtiene mediante el `argmax` de estas probabilidades promediadas.
+- **`data/`**: Contiene los datasets (`UWF-ZeekData24`). Se divide en `raw/` (archivos originales) y `processed/` (dataset histórico para Neo4j, dataset continuo de simulación para Kafka y la plantilla `columnas_modelo.json`).
+- **`models/`**: Directorio donde residen los pesos pre-entrenados (`.pth`), la configuración de umbrales (`config/`) y los artefactos de normalización (`encoders/`).
+- **`notebooks/`**: Cuadernos interactivos para la exploración del tráfico, partición temporal y el entrenamiento avanzado de los modelos predictivos.
+- **`src/`**: Código fuente de producción.
+  - `detector_mitre.py`: Core del motor inductivo.
+  - `api.py`: Servicio web asíncrono (FastAPI) para consumir las predicciones.
+  - `insert_neo4j.py`: Código de pruebas para inserción de subgrafos en Neo4j.
+  - `simulador_kafka.py`: Código de pruebas para test de predicciones con modelos preentrenados.
+  - `simulador_api.py`: Código de pruebas para test de predicciones contra imagen docker desplegada en localhost.
+- **`Dockerfile` / `docker-compose.yml`**: Recetas de contenedorización listas para despliegue híbrido (CPU/CUDA).
+- **`requirements.txt`**: Dependencias de Python.
 
 ---
 
-### Notas para uso en la memoria
+## 🚀 Guía de Despliegue (Inferencia como Servicio)
 
-Este bloque sirve para cubrir prácticamente toda la sección metodológica del Capítulo 4 o 5 de la memoria. Explica **qué se hizo, por qué se hizo a nivel matemático y cuál es su implicación operativa en ciberseguridad**.
+El motor se expone a través de una API REST (FastAPI) encapsulada en Docker, permitiendo intercambiar modelos actualizando únicamente los volúmenes montados.
 
-Luego, en el capítulo de Resultados, solo hay que pegar el _Classification Report_ y la Matriz de Confusión que se obtuvo en tu última prueba para demostrar que esta teoría funciona a la perfección.
+### 1. Preparación de Volúmenes
+
+Antes de levantar el servicio, asegúrate de tener los modelos entrenados y los archivos de metadatos en tu máquina local. El `docker-compose.yml` montará estas dos carpetas en el contenedor:
+
+- `./models`: Debe contener los archivos `.pth` y las subcarpetas `encoders/` y `config/`.
+- `./data`: Debe contener el archivo `columnas_modelo.json`.
+
+### 2. Levantar el Servicio
+
+En la raíz del repositorio, ejecuta:
+
+```bash
+docker build --no-cache -t mitre-detector .
+
+```
+
+> **Nota GPU (CUDA):** Si el servidor _host_ dispone de una tarjeta NVIDIA y `nvidia-container-toolkit` instalado, puedes descomentar el bloque `deploy: resources:` en el `docker-compose.yml` para aceleración por hardware. En caso contrario, PyTorch operará en modo CPU automáticamente.
+
+### 3. Consumir la API
+
+El contenedor expone el servicio en el puerto `8080`. Puedes ver la documentación interactiva (Swagger UI) y probar el endpoint haciendo un POST con un JSON de Zeek dirigiéndote a:
+
+- **Swagger UI:** [http://localhost:8080/docs](https://www.google.com/search?q=http://localhost:8080/docs)
+- **Endpoint de predicción:** `POST http://localhost:8080/classify`
+
+---
+
+## 🧠 Arquitectura y Metodología del Sistema (GNN)
+
+### 1. Clasificador Jerárquico en Cascada
+
+Para abordar el reto inherente al análisis de red, donde el tráfico legítimo supera en órdenes de magnitud a las anomalías, el sistema divide la carga cognitiva:
+
+- **Fase 1 (Detección Binaria):** Un comité entrenado exclusivamente para la discriminación binaria (Ataque vs. Benigno). Actúa como filtro de alta precisión.
+- **Fase 2 (Clasificación multi-clase):** Recibe únicamente el tráfico catalogado como malicioso. Al eliminar el "ruido" benigno, estos modelos se especializan en diferenciar las sutiles huellas topológicas de las tácticas MITRE ATT&CK (ej. _Exfiltration_, _Privilege Escalation_).
+
+### 2. Enrutador Topológico por Servicios
+
+El tráfico se segmenta semánticamente antes de entrar a las redes neuronales:
+
+1. **Experto Web:** Tráfico `ssl` y `http`.
+2. **Experto Infraestructura:** Servicios base y UDP (`dns`, `ntp`, `dhcp`).
+3. **Experto Autenticación:** Protocolos de Windows e identidad (`smb`, `gssapi`, `ntlm`, `dce_rpc`).
+4. **Experto Generalista:** Tráfico desconocido, anómalo o residual.
+
+### 3. Inferencia Inductiva y Correlación Temporal
+
+El sistema opera en verdadero _streaming_ sin memorizar la topología estática, calculando características al vuelo:
+
+- **Características de Nodos y Aristas:** Estadísticas bidireccionales y variables de Zeek (incluyendo el crítico `conn_state`).
+- **Ingeniería Temporal:** La variable `time_since_last_conn` detecta patrones de _Beaconing_ (C2).
+- **Cuarentena de Nodos (Correlación):** Si el motor GNN detecta un ataque volumétrico o anómalo (ej. _Reconnaissance_), el nodo origen y destino entran en "cuarentena". Las conexiones posteriores de esa IP sufren una bajada drástica en el umbral de tolerancia, permitiendo cazar tácticas críticas que de otro modo serían invisibles a nivel de NetFlow.
+
+### 4. Diversidad de Modelos (GraphSAGE + GAT) y Soft Voting
+
+El núcleo predictivo combina dos arquitecturas (PyTorch Geometric):
+
+- **GraphSAGE:** Captura densidad volumétrica en vecindarios locales.
+- **GAT (Atención):** Configurado con `heads=4`, pondera conexiones críticas camufladas entre tráfico benigno.
+
+En la Fase 2, se ejecuta un **Soft Voting Ensemble Intra-Etapa**, promediando las probabilidades del modelo SAGE y GAT. La clase 'Benigno' se fuerza a `0.0`, obligando a emitir un veredicto.
+
+### 5. Mitigación del Desbalanceo y Fuga Temporal (Data Leakage)
+
+- **Corte Cronológico por Densidad de Ataques:** La separación Train/Val/Test evita la fuga de información temporal (Data Leakage). Se realiza un corte temporal continuo basado en los cuantiles de aparición de los ataques, garantizando que el Test Set simule el flujo futuro e ininterrumpido en un entorno real de Kafka. No se puede realizar una división estratificada normal debido a que es necesario conservar la continuidad temporal de los datos tanto en entrenamiento como en inferencia.
+- **Augmentación Topológica (Oversampling):** En lugar de eliminar tráfico benigno (lo que destruiría la topología del grafo), se inyectan dinámicamente aristas duplicadas de las clases minoritarias durante el entrenamiento. Esto no afecta a la pureza del subconjunto de test.
+- **Focal Loss Dinámica con Weight Clipping:** Se aplica un parámetro γ auto-ajustable basado en la distribución de las clases, penalizando severamente los errores en tácticas críticas sin provocar una explosión de los gradientes.
+- **Early Stopping guiado por Macro-F1:** La parada temprana del entrenamiento no se basa en la reducción de la pérdida, sino en la maximización de la métrica Macro-F1 en validación, asegurando que la red no se limite a sobreajustarse a la clase mayoritaria.
+
+---

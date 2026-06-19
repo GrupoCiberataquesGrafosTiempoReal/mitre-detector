@@ -10,7 +10,7 @@
         "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
     ],
     "workspaceFolder": "/workspace",
-    "postCreateCommand": "apt-get update && apt-get install -y python3-tk && pip install matplotlib seaborn pandas numpy tabulate fastparquet pyarrow scikit-learn torch_geometric neo4j dotenv",
+    "postCreateCommand": "apt-get update && apt-get install -y python3-tk curl && curl -sSL https://install.python-poetry.org | python3 - && /root/.local/bin/poetry config virtualenvs.create false && /root/.local/bin/poetry install --without torch",
     "customizations": {
         "vscode": {
             "extensions": [
