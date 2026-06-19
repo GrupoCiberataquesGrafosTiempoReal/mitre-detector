@@ -1,7 +1,7 @@
 services:
   inference-api:
     build: .
-    container_name: mitre-inference-api
+    container_name: mitre-detector
     ports:
       - "8080:8080"
     volumes:

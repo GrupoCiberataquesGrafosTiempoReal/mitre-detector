@@ -51,7 +51,7 @@ Ajusta la ruta a los volúmenes si es necesario:
 ```bash
 docker build --no-cache -t mitre-detector .
 docker run -d \
-  --name api-mitre \
+  --name mitre-detector \
   -p 8080:8080 \
   -v "$(pwd)/models:/models:ro" \
   -v "$(pwd)/data:/data:ro" \
