@@ -360,9 +360,9 @@ class DetectorMITRE:
             # forzamos el paso a la Fase 2 (Analista Multiclase)
             if prob_ataque < self.umbral_binario and not esta_comprometida:
                 return {
-                    "es_ataque": False, 
-                    "tactic": "Benigno", 
-                    "confianza": round(probs_bin[0].item(), 4)
+                    "label_binary": False, 
+                    "label_tactic": "Benigno", 
+                    "confidence": round(probs_bin[0].item(), 4)
                 }
 
             # --- FASE 2: ANALISTA MULTICLASE (Soft Voting) ---
@@ -390,7 +390,7 @@ class DetectorMITRE:
                 confianza_final = round(probs_final[tactic_idx].item() * 0.8, 4)
             
             return {
-                "es_ataque": True,
-                "tactic": tactic_name,
-                "confianza": confianza_final
+                "label_binary": True,
+                "label_tactic": tactic_name,
+                "confidence": confianza_final
             }

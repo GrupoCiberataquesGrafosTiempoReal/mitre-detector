@@ -75,30 +75,30 @@ def iniciar_simulacion():
         dst = payload_json.get('dest_ip_zeek', 'Unknown')
         srv = payload_json.get('service', 'desc')
 
-        if resultado["es_ataque"]:
+        if resultado["label_binary"]:
             alertas_generadas += 1
             
             # Comprobar si hemos acertado el ataque y la táctica
             if not es_ataque_real:
                 match_str = f"❌ FALSO POSITIVO (Real: {tactica_real})"
-            elif tactica_real == resultado['tactic']:
+            elif tactica_real == resultado['label_tactic']:
                 match_str = "✅ ACIERTO TÁCTICA"
             else:
                 match_str = f"⚠️ ATAQUE DETECTADO, FALLO TÁCTICA (Real: {tactica_real})"
                 
             # TEMPORAL:
-            if resultado['tactic'] != "Credential Access":
+            if resultado['label_tactic'] != "Credential Access":
                 print(f"[🚨 ALERTA] {src} -> {dst} | Srv: {srv.upper()} "
-                    f"| Pred: {resultado['tactic']} (Conf: {resultado['confianza']:.2f}) "
+                    f"| Pred: {resultado['label_tactic']} (Conf: {resultado['confidence']:.2f}) "
                     f"| {match_str} | Lat: {latencia_ms:.2f} ms")
         else:
             if MOSTRAR_BENIGNOS:
                 if not es_ataque_real:
-                    match_str = f"✅ ACIERTO - Conf: {resultado['confianza']:.2f}"
+                    match_str = f"✅ ACIERTO - Conf: {resultado['confidence']:.2f}"
                 else:
-                    match_str = f"❌ FALSO NEGATIVO (Era Ataque: {tactica_real}) - Conf: {resultado['confianza']:.2f}"
+                    match_str = f"❌ FALSO NEGATIVO (Era Ataque: {tactica_real}) - Conf: {resultado['confidence']:.2f}"
                     
-                print(f"[✅ OK] {src} -> {dst} | Pred: Benigno | {match_str} | Lat: {latencia_ms:.2f} ms - Conf: {resultado['confianza']:.2f}")
+                print(f"[✅ OK] {src} -> {dst} | Pred: Benigno | {match_str} | Lat: {latencia_ms:.2f} ms - Conf: {resultado['confidence']:.2f}")
 
     print("\n======================================================")
     print(" RESUMEN DE RENDIMIENTO DE INFERENCIA")
