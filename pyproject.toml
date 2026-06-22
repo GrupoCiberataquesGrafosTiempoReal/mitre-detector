@@ -31,7 +31,16 @@ python-dotenv = "*"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.group.torch.dependencies]
-torch = "2.11.0"
-# Solo se utiliza cuando se haga build de la imagen docker, 
+# torch solo se utiliza cuando se haga build de la imagen docker, 
 # ya que en desarrollo se cuenta con la versión de NVIDIA especificada en devcontainer.json
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[tool.poetry.group.torch-gpu.dependencies]
+torch = "2.11.0"
+
+[tool.poetry.group.torch-cpu.dependencies]
+torch = {version = "2.11.0", source = "pytorch-cpu"}

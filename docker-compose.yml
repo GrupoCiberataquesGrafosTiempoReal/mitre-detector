@@ -1,6 +1,9 @@
 services:
-  inference-api:
-    build: .
+  mitre-detector:
+    build:
+      context: .
+      args:
+        - BUILD_TYPE=cpu
     container_name: mitre-detector
     ports:
       - "8080:8080"
@@ -19,10 +22,12 @@ services:
     # ==========================================================
     # Si el servidor o equipo host tiene una GPU NVIDIA y el 
     # nvidia-container-toolkit instalado, descomenta las líneas 
+
     # de abajo para activar la aceleración por hardware.
-    #
+    # También deberás modificar BUILD_TYPE a 'gpu' en el bloque de build para usar una imagen base compatible con CUDA.
+
     # Si se dejan comentadas, PyTorch operará en modo CPU de 
-    # forma automática.
+    # forma automática, independientemente del valor de BUILD_TYPE.
     #
     # deploy:
     #   resources:

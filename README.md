@@ -42,14 +42,19 @@ Esto utilizará la configuración en _docker-compose.yml_. En la raíz del repos
 docker compose up -d --build
 ```
 
-> **Nota GPU (CUDA):** Si el servidor _host_ dispone de una tarjeta NVIDIA y `nvidia-container-toolkit` instalado, puedes descomentar el bloque `deploy: resources:` en el `docker-compose.yml` para aceleración por hardware. En caso contrario, PyTorch operará en modo CPU automáticamente.
+> **Nota GPU (CUDA):** Si el servidor _host_ dispone de una tarjeta NVIDIA y `nvidia-container-toolkit` instalado, puedes descomentar el bloque `deploy: resources:` en el `docker-compose.yml` para aceleración por hardware. También deberás ajustar BUILD_TYPE a 'gpu'.
 
 **Opción B: Usando Docker CLI Manualmente**
 Si prefieres gestionar el contenedor a mano, construye la imagen y levántala montando los volúmenes.
 Ajusta la ruta a los volúmenes si es necesario:
 
 ```bash
-docker build --no-cache -t mitre-detector .
+# Para la versión CPU:
+docker build --no-cache -t mitre-detector:cpu .
+
+# Para la versión compatible con CUDA:
+docker build --no-cache --build-arg BUILD_TYPE=gpu -t mitre-detector:gpu .
+
 docker run -d \
   --name mitre-detector \
   -p 8080:8080 \

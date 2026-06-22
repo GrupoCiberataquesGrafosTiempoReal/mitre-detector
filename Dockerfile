@@ -4,6 +4,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/root/.local/bin:$PATH"
 
+ARG BUILD_TYPE="cpu"
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,7 +15,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN poetry config virtualenvs.create false
 COPY pyproject.toml poetry.lock* /app/
-RUN poetry install --without dev --no-root
+
+RUN if [ "$BUILD_TYPE" = "gpu" ]; then \
+        poetry install --without dev,torch-cpu --no-root; \
+    else \
+        poetry install --without dev,torch-gpu --no-root; \
+    fi
 
 RUN mkdir -p /app/src
 COPY src/api.py /app/src/
