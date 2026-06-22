@@ -31,9 +31,9 @@ class ZeekEvent(BaseModel):
     conn_state: str = Field(..., description="Estado de la conexión", example="SF")
 
 class InferenceResponse(BaseModel):
-    es_ataque: bool = Field(..., description="Resultado de la Fase 1. Indica si el flujo es malicioso", example=False)
-    tactic: str = Field(..., description="Resultado de la Fase 2. Táctica MITRE ATT&CK identificada o 'Benigno'", example="Benigno")
-    confianza: float = Field(..., description="Nivel de confianza o probabilidad promedio devuelto por el ensemble", example=0.9852)
+    label_binary: bool = Field(..., description="Resultado de la Fase 1. Indica si el flujo es malicioso", example=False)
+    label_tactic: str = Field(..., description="Resultado de la Fase 2. Táctica MITRE ATT&CK identificada o 'Benigno'", example="Benigno")
+    confidence: float = Field(..., description="Nivel de confianza o probabilidad promedio devuelto por el ensemble", example=0.9852)
 
 # Instancia global del motor de inferencia
 detector = None

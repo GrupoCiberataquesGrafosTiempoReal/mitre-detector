@@ -60,7 +60,7 @@ docker run -d \
   -p 8080:8080 \
   -v "$(pwd)/models:/models:ro" \
   -v "$(pwd)/data:/data:ro" \
-  mitre-detector
+  mitre-detector:cpu # o mitre-detector:gpu
 ```
 
 ### 3. Consumir la API
