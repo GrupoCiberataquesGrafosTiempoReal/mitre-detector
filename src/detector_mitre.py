@@ -282,7 +282,7 @@ class DetectorMITRE:
         aristas_activas = np.array(self.ventana_aristas).T
         edge_index_historico_vivo = torch.tensor(aristas_activas, dtype=torch.long).to(self.device)
         
-        # Extraemos solo la porción de IPs activas para ahorrar memoria GPU
+        # Extraemos solo la porción de IPs activas para ahorrar memoria
         x_nodos_vivo = torch.tensor(self.x_nodos_np[:self.next_node_id], dtype=torch.float).to(self.device)
 
         # ---------------------------------------------------------
@@ -341,7 +341,7 @@ class DetectorMITRE:
         else:
             m_bin, m_multi = self.bin_gen, [self.multi_gen_sage, self.multi_gen_gat]
 
-        # Comprobar si esta conexión ocurre en un túnel ya comprometido recientemente (ej. últimos 5 mins)
+        # Comprobar si esta conexión ocurre en un túnel ya comprometido recientemente (últimos 5 mins)
         esta_comprometida = False
         if clave_conn in self.aristas_comprometidas:
             tiempo_desde_ataque = ts_actual - self.aristas_comprometidas[clave_conn]
@@ -356,7 +356,7 @@ class DetectorMITRE:
             probs_bin = F.softmax(out_bin, dim=1)[0]
             prob_ataque = probs_bin[1].item() 
 
-            # Si el portero dice Benigno (prob_ataque < umbral) PERO la arista es radiactiva,
+            # Si el portero dice Benigno (prob_ataque < umbral) PERO la arista está comprometida,
             # forzamos el paso a la Fase 2 (Analista Multiclase)
             if prob_ataque < self.umbral_binario and not esta_comprometida:
                 return {
@@ -378,16 +378,16 @@ class DetectorMITRE:
             tactic_idx = torch.argmax(probs_ajustadas).item()
             tactic_name = self.encoder.inverse_transform([tactic_idx])[0]
 
-            # --- ACTUALIZAR MEMORIA RADIACTIVA ---
+            # --- ACTUALIZAR MEMORIA DE ARISTAS COMPROMETIDAS ---
             # Si hemos detectado un ataque, marcamos la arista para el futuro
             self.aristas_comprometidas[clave_conn] = ts_actual
             
-            # Penalización visual de confianza si fue forzado por radiactividad
+            # Penalización visual de confianza si fue forzado por estar la arista comprometida
             confianza_final = round(probs_final[tactic_idx].item(), 4)
             if prob_ataque < self.umbral_binario and esta_comprometida:
                 # El modelo multiclase está operando sobre tráfico que parece normal a nivel de red,
                 # la confianza será más baja, pero forzamos la alerta por correlación temporal.
-                confianza_final = round(probs_final[tactic_idx].item() * 0.8, 4)
+                confianza_final = round(probs_final[tactic_idx].item() * 0.8, 4) # Penalización del 20% en la confianza
             
             return {
                 "label_binary": True,
