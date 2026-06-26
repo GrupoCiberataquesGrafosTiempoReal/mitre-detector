@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "fallback_multiclass_domain": "global",
+  "fallback_priority": [
+    "global",
+    "global",
+    "gen"
+  ],
+  "allow_multiclass_fallback": true,
+  "models": {
+    "bin_sage": {
+      "role": "binary",
+      "domain": "global",
+      "filename": "bin_sage.pth",
+      "hidden_channels": 256,
+      "out_classes": 2,
+      "conv_type": "SAGE",
+      "dropout_rate": 0.3,
+      "trained": true,
+      "exported": true,
+      "train_samples": 1341726,
+      "val_samples": 287512,
+      "best_f1": 0.9997078381864724,
+      "train_classes": [
+        0,
+        1
+      ]
+    },
+    "multi_web_sage": {
+      "role": "multiclass",
+      "domain": "web",
+      "filename": "multi_web_sage.pth",
+      "hidden_channels": 128,
+      "out_classes": "num_clases",
+      "conv_type": "SAGE",
+      "dropout_rate": 0.3,
+      "trained": true,
+      "exported": true,
+      "train_samples": 609365,
+      "val_samples": 130527,
+      "best_f1": 1.0,
+      "train_classes": [
+        1,
+        4
+      ]
+    },
+    "multi_auth_sage": {
+      "role": "multiclass",
+      "domain": "auth",
+      "filename": "multi_auth_sage.pth",
+      "hidden_channels": 128,
+      "out_classes": "num_clases",
+      "conv_type": "SAGE",
+      "dropout_rate": 0.4,
+      "trained": true,
+      "exported": true,
+      "train_samples": 1726,
+      "val_samples": 392,
+      "best_f1": 0.17966016317700048,
+      "train_classes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "multi_auth_gat": {
+      "role": "multiclass",
+      "domain": "auth",
+      "filename": "multi_auth_gat.pth",
+      "hidden_channels": 128,
+      "out_classes": "num_clases",
+      "conv_type": "GAT",
+      "dropout_rate": 0.4,
+      "trained": true,
+      "exported": true,
+      "train_samples": 1726,
+      "val_samples": 392,
+      "best_f1": 0.1458340712927869,
+      "train_classes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "multi_gen_sage": {
+      "role": "multiclass",
+      "domain": "gen",
+      "filename": "multi_gen_sage.pth",
+      "hidden_channels": 256,
+      "out_classes": "num_clases",
+      "conv_type": "SAGE",
+      "dropout_rate": 0.5,
+      "trained": true,
+      "exported": true,
+      "train_samples": 59959,
+      "val_samples": 12877,
+      "best_f1": 0.45716069636859047,
+      "train_classes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "multi_gen_gat": {
+      "role": "multiclass",
+      "domain": "gen",
+      "filename": "multi_gen_gat.pth",
+      "hidden_channels": 256,
+      "out_classes": "num_clases",
+      "conv_type": "GAT",
+      "dropout_rate": 0.5,
+      "trained": true,
+      "exported": true,
+      "train_samples": 59959,
+      "val_samples": 12877,
+      "best_f1": 0.4171408606859736,
+      "train_classes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "multi_global_sage": {
+      "role": "multiclass",
+      "domain": "global",
+      "filename": "multi_global_sage.pth",
+      "hidden_channels": 256,
+      "out_classes": "num_clases",
+      "conv_type": "SAGE",
+      "dropout_rate": 0.5,
+      "trained": true,
+      "exported": true,
+      "train_samples": 671050,
+      "val_samples": 143796,
+      "best_f1": 0.5096857718295732,
+      "train_classes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  },
+  "skipped_models": {
+    "multi_infra_sage": {
+      "role": "multiclass",
+      "domain": "infra",
+      "filename": "multi_infra_sage.pth",
+      "trained": false,
+      "exported": false,
+      "reason": "no_train_samples",
+      "train_samples": 0,
+      "val_samples": 0,
+      "train_classes": []
+    },
+    "multi_infra_gat": {
+      "role": "multiclass",
+      "domain": "infra",
+      "filename": "multi_infra_gat.pth",
+      "trained": false,
+      "exported": false,
+      "reason": "no_train_samples",
+      "train_samples": 0,
+      "val_samples": 0,
+      "train_classes": []
+    }
+  }
+}

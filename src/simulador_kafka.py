@@ -12,7 +12,7 @@ dir_actual = os.path.dirname(os.path.abspath(__file__))
 ruta_datos = os.path.abspath(os.path.join(dir_actual, "..", "data", "processed"))
 RUTA_TEST = os.path.join(ruta_datos, "dataset_simulacion_kafka.parquet")
 MUESTRAS_A_SIMULAR = 100000
-SALTAR_N_FILAS = 0  
+SALTAR_N_FILAS = 0#160000 
 MOSTRAR_BENIGNOS = True   
 
 def iniciar_simulacion():
@@ -22,7 +22,7 @@ def iniciar_simulacion():
 
     print("[*] Levantando el Motor de Inferencia en Cascada...")
     start_init = time.time()
-    detector = DetectorMITRE()
+    detector = DetectorMITRE(max_window_size=50000)
     print(f"[✓] Detector inicializado en {time.time() - start_init:.2f} segundos.\n")
 
     print(f"[*] Cargando dataset de simulación: {RUTA_TEST}")
@@ -87,10 +87,10 @@ def iniciar_simulacion():
                 match_str = f"⚠️ ATAQUE DETECTADO, FALLO TÁCTICA (Real: {tactica_real})"
                 
             # TEMPORAL:
-            if resultado['label_tactic'] != "Credential Access":
-                print(f"[🚨 ALERTA] {src} -> {dst} | Srv: {srv.upper()} "
-                    f"| Pred: {resultado['label_tactic']} (Conf: {resultado['confidence']:.2f}) "
-                    f"| {match_str} | Lat: {latencia_ms:.2f} ms")
+            #if resultado['label_tactic'] != "Credential Access":
+            print(f"[🚨 ALERTA] {src} -> {dst} | Srv: {srv.upper()} "
+                f"| Pred: {resultado['label_tactic']} (Conf: {resultado['confidence']:.2f}) "
+                f"| {match_str} | Lat: {latencia_ms:.2f} ms")
         else:
             if MOSTRAR_BENIGNOS:
                 if not es_ataque_real:
