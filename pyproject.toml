@@ -25,6 +25,7 @@ tabulate = "*"
 fastparquet = "*"
 neo4j = "*"
 python-dotenv = "*"
+xgboost = "*"
 # Solo se utiliza durante desarrollo
 
 [build-system]
