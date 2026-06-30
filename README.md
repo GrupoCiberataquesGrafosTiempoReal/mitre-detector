@@ -7,8 +7,8 @@ Este repositorio contiene el código fuente, la experimentación y el motor de i
 ## 📂 Estructura del Repositorio
 
 - **`data/`**: Contiene los datasets utilizados en el proyecto. Se divide en `raw/` para los archivos originales y `processed/` para los artefactos derivados, como el dataset histórico estratificado para Neo4j, el dataset de test estratificado para simulación Kafka/API y la plantilla `columnas_modelo.json`.
-- **`models/`**: Directorio donde residen los pesos entrenados (`.pth`), la configuración de umbrales (`config/`), el manifiesto dinámico de modelos (`config/model_manifest.json`) y los artefactos de normalización y estado histórico (`encoders/`).
-- **`notebooks/`**: Cuadernos interactivos para la exploración del tráfico, partición temporal estratificada, construcción del grafo y entrenamiento de los modelos predictivos.
+- **`models/`**: Directorio donde residen los pesos entrenados (`.pth`), la configuración de umbrales (`config/`), el manifiesto dinámico de modelos (`config/model_manifest.json`), los artefactos de normalización y estado histórico (`encoders/`) y los resultados experimentales de evaluación (`evaluation/`).
+- **`notebooks/`**: Cuadernos interactivos para la exploración del tráfico, partición temporal estratificada, construcción del grafo, entrenamiento de los modelos predictivos y comparación experimental con modelos tabulares baseline.
 - **`src/`**: Código fuente de producción.
   - `detector_mitre.py`: Núcleo del motor inductivo/stateful de inferencia.
   - `api.py`: Servicio web asíncrono basado en FastAPI para consumir las predicciones.
@@ -140,17 +140,28 @@ El entrenamiento genera un paquete reproducible para inferencia:
 - `models/encoders/x_nodos_entrenamiento.pt`: Características históricas de nodos.
 - `models/encoders/edge_index_entrenamiento.pt`: Topología histórica base de entrenamiento-validación, excluyendo test.
 - `data/processed/columnas_modelo.json`: Orden exacto de columnas esperado por el motor de inferencia.
+- `models/evaluation/comparativa_gnn_vs_baselines.csv`: Tabla comparativa entre la GNN jerárquica y los modelos tabulares baseline.
+- `models/evaluation/tiempos_entrenamiento_gnn.csv`: Tiempos de entrenamiento por experto GNN.
+- `models/evaluation/tiempo_entrenamiento_total_gnn.json`: Tiempo total de entrenamiento, dispositivo utilizado, memoria máxima CUDA si aplica y metadatos de reproducibilidad.
 
 ---
 
 ## 🧪 Evaluación
 
-La evaluación final se realiza sobre el subconjunto de test estratificado. El modelo se evalúa de forma inductiva: las aristas de test se predicen utilizando la topología histórica disponible, pero no se incorporan al grafo base de Message Passing exportado.
+La evaluación final se realiza sobre el subconjunto de test estratificado. El modelo GNN se evalúa de forma inductiva: las aristas de test se predicen utilizando la topología histórica disponible, pero no se incorporan al grafo base de Message Passing exportado.
+
+Además de la evaluación del sistema GNN, el notebook incluye una comparación experimental con modelos tabulares baseline, principalmente **Random Forest** y **XGBoost**. Estos modelos reciben atributos de arista y características agregadas de los nodos origen/destino, pero no disponen de Message Passing ni de actualización topológica de embeddings. La comparación permite cuantificar si la arquitectura basada en grafos aporta valor frente a clasificadores tabulares fuertes entrenados sobre una representación equivalente sin contexto relacional.
 
 Se reportan métricas globales y por clase, con especial atención a:
 
+- **Accuracy global**, como referencia general.
 - **Macro-F1 global**, para evitar que la clase mayoritaria o las tácticas dominantes oculten errores en clases minoritarias.
 - **Macro-Recall global**.
 - **Macro-Recall sobre clases de ataque**, excluyendo la clase `Benigno`.
+- **MCC global**, como métrica robusta ante desbalanceo.
+- **ROC-AUC binario**, calculado sobre la fase de detección Ataque/Benigno.
+- **Latencia media por evento** y **throughput**, medidos en inferencia batch durante la evaluación experimental.
+
+La comparación no presupone que la GNN supere a los modelos tabulares en todas las métricas. Su objetivo es evaluar el compromiso entre rendimiento predictivo, sensibilidad sobre tácticas de ataque, coste de inferencia y coherencia con el modelado mediante grafos.
 
 ---

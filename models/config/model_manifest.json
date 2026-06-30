@@ -20,7 +20,7 @@
       "exported": true,
       "train_samples": 1341726,
       "val_samples": 287512,
-      "best_f1": 0.9997078381864724,
+      "best_f1": 0.9997182725402783,
       "train_classes": [
         0,
         1
@@ -79,7 +79,7 @@
       "exported": true,
       "train_samples": 1726,
       "val_samples": 392,
-      "best_f1": 0.1458340712927869,
+      "best_f1": 0.1452877437301791,
       "train_classes": [
         1,
         2,
@@ -102,7 +102,7 @@
       "exported": true,
       "train_samples": 59959,
       "val_samples": 12877,
-      "best_f1": 0.45716069636859047,
+      "best_f1": 0.459087748677559,
       "train_classes": [
         1,
         2,
@@ -125,7 +125,7 @@
       "exported": true,
       "train_samples": 59959,
       "val_samples": 12877,
-      "best_f1": 0.4171408606859736,
+      "best_f1": 0.40120050442515043,
       "train_classes": [
         1,
         2,
@@ -148,7 +148,7 @@
       "exported": true,
       "train_samples": 671050,
       "val_samples": 143796,
-      "best_f1": 0.5096857718295732,
+      "best_f1": 0.5032245528773267,
       "train_classes": [
         1,
         2,

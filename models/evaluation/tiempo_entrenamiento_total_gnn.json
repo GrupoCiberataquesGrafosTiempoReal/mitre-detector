@@ -1,0 +1,10 @@
+{
+    "tiempo_entrenamiento_total_s": 124.8742545099999,
+    "tiempo_entrenamiento_total_min": 2.081237575166665,
+    "device": "cuda",
+    "cuda_available": true,
+    "memoria_gpu_max_mb": 9407.509765625,
+    "seed": 112,
+    "num_ejecuciones_controladas": ">=15",
+    "nota": "Las ejecuciones se realizaron con semilla fija para reproducibilidad. No representan ejecuciones estad\u00edsticamente independientes con semillas distintas."
+}
