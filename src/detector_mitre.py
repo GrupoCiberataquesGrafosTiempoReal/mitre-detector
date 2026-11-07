@@ -26,7 +26,9 @@ class AdvancedEdgeExpert(torch.nn.Module):
         dropout_rate: float = 0.3,
     ):
         super(AdvancedEdgeExpert, self).__init__()
+
         self.conv_type = conv_type
+        self.edge_in_channels = edge_in_channels
 
         if conv_type == "SAGE":
             self.conv1 = SAGEConv(node_in_channels, hidden_channels)
@@ -39,9 +41,25 @@ class AdvancedEdgeExpert(torch.nn.Module):
                 f"hidden_channels ({hidden_channels}) "
                 f"debe ser divisible por heads ({heads})"
             )
-            self.conv1 = GATConv(node_in_channels, hidden_channels // heads, heads=heads)
-            self.conv2 = GATConv(hidden_channels, hidden_channels // heads, heads=heads)
-            self.conv3 = GATConv(hidden_channels, hidden_channels, heads=1)
+
+            self.conv1 = GATConv(
+                node_in_channels,
+                hidden_channels // heads,
+                heads=heads,
+                edge_dim=edge_in_channels
+            )
+            self.conv2 = GATConv(
+                hidden_channels,
+                hidden_channels // heads,
+                heads=heads,
+                edge_dim=edge_in_channels
+            )
+            self.conv3 = GATConv(
+                hidden_channels,
+                hidden_channels,
+                heads=1,
+                edge_dim=edge_in_channels
+            )
 
         else:
             raise ValueError(f"conv_type no soportado: {conv_type}")
@@ -58,16 +76,68 @@ class AdvancedEdgeExpert(torch.nn.Module):
             nn.Linear(hidden_channels // 2, out_classes),
         )
 
-    def forward(self, x, edge_index_msg, edge_index_pred, edge_attr_pred):
-        x = F.relu(self.conv1(x, edge_index_msg))
-        x = F.relu(self.conv2(x, edge_index_msg))
-        x = self.conv3(x, edge_index_msg)
+    def forward(
+        self,
+        x,
+        edge_index_msg,
+        edge_index_pred,
+        edge_attr_pred,
+        edge_attr_msg=None
+    ):
+        if edge_attr_pred.ndim != 2:
+            raise ValueError("edge_attr_pred debe ser bidimensional.")
+
+        if edge_attr_pred.shape[0] != edge_index_pred.shape[1]:
+            raise ValueError(
+                "edge_attr_pred no está alineado con edge_index_pred."
+            )
+
+        if self.conv_type == "GAT":
+            if edge_attr_msg is None:
+                raise ValueError(
+                    "GAT edge-aware necesita edge_attr_msg."
+                )
+
+            if edge_attr_msg.ndim != 2:
+                raise ValueError("edge_attr_msg debe ser bidimensional.")
+
+            if edge_attr_msg.shape[0] != edge_index_msg.shape[1]:
+                raise ValueError(
+                    "edge_attr_msg no está alineado con edge_index_msg: "
+                    f"{edge_attr_msg.shape[0]} atributos frente a "
+                    f"{edge_index_msg.shape[1]} aristas."
+                )
+
+            if edge_attr_msg.shape[1] != self.edge_in_channels:
+                raise ValueError(
+                    f"Dimensión incorrecta de edge_attr_msg: "
+                    f"esperada {self.edge_in_channels}, "
+                    f"recibida {edge_attr_msg.shape[1]}."
+                )
+
+            x = F.relu(
+                self.conv1(x, edge_index_msg, edge_attr_msg)
+            )
+            x = F.relu(
+                self.conv2(x, edge_index_msg, edge_attr_msg)
+            )
+            x = self.conv3(x, edge_index_msg, edge_attr_msg)
+
+        else:
+            x = F.relu(self.conv1(x, edge_index_msg))
+            x = F.relu(self.conv2(x, edge_index_msg))
+            x = self.conv3(x, edge_index_msg)
 
         src = edge_index_pred[0]
         dst = edge_index_pred[1]
 
-        edge_features = torch.cat([x[src], x[dst], edge_attr_pred], dim=-1)
+        edge_features = torch.cat(
+            [x[src], x[dst], edge_attr_pred],
+            dim=-1
+        )
+
         return self.edge_classifier(edge_features)
+
 
 
 # ==============================================================================
@@ -223,6 +293,36 @@ class DetectorMITRE:
                 "edge_index_entrenamiento.pt debe tener forma [2, num_aristas]. "
                 f"Forma recibida: {tuple(self.edge_index_base.shape)}"
             )
+        
+        self.edge_attr_base = self._torch_load(
+            os.path.join(self.encoders_dir, "edge_attr_entrenamiento.pt"),
+            map_location=self.device,
+        ).float().to(self.device).contiguous()
+
+        if self.edge_attr_base.dim() != 2:
+            raise ValueError(
+                "edge_attr_entrenamiento.pt debe tener forma "
+                "[num_aristas, num_features]. "
+                f"Forma recibida: {tuple(self.edge_attr_base.shape)}"
+            )
+
+        if self.edge_attr_base.size(0) != self.edge_index_base.size(1):
+            raise ValueError(
+                "Desalineación entre edge_index_entrenamiento.pt y "
+                "edge_attr_entrenamiento.pt: "
+                f"{self.edge_index_base.size(1)} aristas frente a "
+                f"{self.edge_attr_base.size(0)} vectores de atributos."
+            )
+
+        self.num_edge_features = int(self.edge_attr_base.size(1))
+
+        if self.num_edge_features != len(self.columnas_modelo):
+            raise ValueError(
+                "La dimensión de los atributos históricos no coincide "
+                "con columnas_modelo.json: "
+                f"{self.num_edge_features} frente a "
+                f"{len(self.columnas_modelo)}."
+            )
 
         self.x_nodos_vivo = self._torch_load(
             os.path.join(self.encoders_dir, "x_nodos_entrenamiento.pt"),
@@ -285,6 +385,7 @@ class DetectorMITRE:
         print("[*] Artefactos cargados:")
         print(f"    - Nodos históricos: {self.x_nodos_vivo.size(0):,}")
         print(f"    - Aristas históricas base: {self.edge_index_base.size(1):,}")
+        print(f"    - Atributos históricos: {self.edge_attr_base.size(0):,} x {self.edge_attr_base.size(1)}")
         print(f"    - Siguiente ID de nodo: {self.next_node_id:,}")
         print(f"    - Umbral binario: {self.umbral_binario}")
         print("    - Modelos multiclase cargados por dominio:")
@@ -579,22 +680,57 @@ class DetectorMITRE:
     # --------------------------------------------------------------------------
     # Construcción de grafo vivo
     # --------------------------------------------------------------------------
-    def _construir_edge_index_historico_vivo(self) -> torch.Tensor:
+    def _construir_grafo_historico_vivo(self):
         """
-        Construye edge_index para Message Passing:
-          - edge_index_base: topología histórica exportada desde entrenamiento/validación.
-          - ventana_aristas_stream: aristas nuevas vistas desde que arrancó el detector.
-        """
-        if len(self.ventana_aristas_stream) == 0:
-            return self.edge_index_base
+        Construye el contexto de message passing:
+          - Grafo histórico exportado (TRAIN + VAL).
+          - Ventana de conexiones recibidas desde el arranque del detector.
 
+        Devuelve:
+          - edge_index_msg: [2, num_aristas]
+          - edge_attr_msg:  [num_aristas, num_edge_features]
+
+        Ambos tensores mantienen exactamente el mismo orden de aristas.
+        """
+
+        if len(self.ventana_aristas_stream) == 0:
+            return self.edge_index_base, self.edge_attr_base
+
+        # Extraer topología de la ventana.
         edge_index_stream = torch.tensor(
-            list(self.ventana_aristas_stream),
+            [
+                (src_id, dst_id)
+                for src_id, dst_id, _ in self.ventana_aristas_stream
+            ],
             dtype=torch.long,
             device=self.device,
         ).t().contiguous()
 
-        return torch.cat([self.edge_index_base, edge_index_stream], dim=1)
+        # Extraer atributos en el mismo orden.
+        edge_attr_stream = torch.stack(
+            [
+                edge_attr
+                for _, _, edge_attr in self.ventana_aristas_stream
+            ],
+            dim=0,
+        ).to(
+            device=self.device,
+            dtype=torch.float
+        ).contiguous()
+
+        # Concatenar histórico + streaming.
+        edge_index_msg = torch.cat(
+            [self.edge_index_base, edge_index_stream],
+            dim=1
+        )
+
+        edge_attr_msg = torch.cat(
+            [self.edge_attr_base, edge_attr_stream],
+            dim=0
+        )
+
+        return edge_index_msg, edge_attr_msg
+
 
     # --------------------------------------------------------------------------
     # Edge features
@@ -765,12 +901,23 @@ class DetectorMITRE:
         self.memoria_timestamps[clave_conn] = ts_actual
 
         edge_attr_pred = self._construir_edge_attr(datos_json, delta_time)
+        
+        # ----------------------------------------------------------------------
+        # E. Topología y atributos vivos: histórico + ventana streaming
+        # ----------------------------------------------------------------------
 
-        # ----------------------------------------------------------------------
-        # E. Topología viva: base histórica + ventana streaming
-        # ----------------------------------------------------------------------
-        self.ventana_aristas_stream.append((src_id, dst_id))
-        edge_index_historico_vivo = self._construir_edge_index_historico_vivo()
+        # Guardamos los atributos escalados de la conexión junto a sus nodos.
+        # Se conserva en CPU para no mantener miles de pequeños tensores en GPU.
+        edge_attr_stream = edge_attr_pred[0].detach().cpu().clone()
+
+        self.ventana_aristas_stream.append(
+            (src_id, dst_id, edge_attr_stream)
+        )
+
+        (
+            edge_index_historico_vivo,
+            edge_attr_historico_vivo
+        ) = self._construir_grafo_historico_vivo()
 
         edge_index_pred = torch.tensor(
             [[src_id], [dst_id]],
@@ -851,7 +998,9 @@ class DetectorMITRE:
                     edge_index_historico_vivo,
                     edge_index_pred,
                     edge_attr_pred,
+                    edge_attr_msg=edge_attr_historico_vivo,
                 )
+
                 probs_acum += F.softmax(out_multi, dim=1)[0]
 
             probs_final = probs_acum / len(modelos_multiclase)
